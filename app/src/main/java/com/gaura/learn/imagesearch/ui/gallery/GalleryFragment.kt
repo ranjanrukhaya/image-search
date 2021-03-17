@@ -5,8 +5,10 @@ import android.view.Menu
 import android.view.MenuInflater
 import android.view.View
 import androidx.appcompat.widget.SearchView
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.paging.LoadState
 import com.gaura.learn.imagesearch.R
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.android.synthetic.main.fragment_gallery.*
@@ -23,15 +25,34 @@ class GalleryFragment : Fragment(R.layout.fragment_gallery) {
         val photoAdapter = UnsplashPhotoAdapter()
 
         recycler_view.apply {
+            itemAnimator = null
             adapter = photoAdapter.withLoadStateHeaderAndFooter(
                 header = UnsplashPhotoLoadStateAdapter { photoAdapter.retry() },
                 footer = UnsplashPhotoLoadStateAdapter { photoAdapter.retry() }
             )
             setHasFixedSize(true)
+            button_retry.setOnClickListener { photoAdapter.retry() }
         }
 
         viewModel.photos.observe(viewLifecycleOwner) {
             photoAdapter.submitData(viewLifecycleOwner.lifecycle, it)
+        }
+
+        photoAdapter.addLoadStateListener { loadState ->
+            progress_bar.isVisible = loadState.source.refresh is LoadState.Loading
+            recycler_view.isVisible = loadState.source.refresh is LoadState.NotLoading
+            button_retry.isVisible = loadState.source.refresh is LoadState.Error
+            text_view_error.isVisible = loadState.source.refresh is LoadState.Error
+
+            if (loadState.source.refresh is LoadState.NotLoading &&
+                loadState.refresh.endOfPaginationReached &&
+                photoAdapter.itemCount < 1
+            ) {
+                recycler_view.isVisible = false
+                text_view_empty.isVisible = true
+            } else {
+                text_view_empty.isVisible = false
+            }
         }
 
         setHasOptionsMenu(true)
